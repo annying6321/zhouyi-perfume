@@ -57,7 +57,7 @@ export default function Home() {
       "天地否", "泽地萃", "火地晋", "雷地豫", "风地观", "水地比", "山地剥", "坤为地",
     ];
 
-    const guaIndex = (upper - 1) * 8 + (lower - 1);
+    const guaIndex = (lower - 1) * 8 + (upper - 1);
     const hexagram = guaNames[guaIndex];
 
     // 查找该爻的准确名称（如"初九""六二"）
