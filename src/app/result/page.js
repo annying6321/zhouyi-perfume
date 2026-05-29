@@ -39,8 +39,14 @@ export default function Result() {
     if (saved) {
       try {
         const d = JSON.parse(saved);
-        setData(d);
-        extractScheme(d.result);
+        setData(d.data);
+        // 恢复配色
+        if (d.schemeIdx && schemesCache) {
+          const found = schemesCache.find(s => s.name === d.schemeIdx);
+          if (found) setActiveScheme(found);
+        } else {
+          extractScheme(d.data.result);
+        }
         sessionStorage.removeItem("divinationResult");
         return;
       } catch(e) {}
@@ -326,7 +332,7 @@ export default function Result() {
             style={{color: activeScheme ? activeScheme.text : "#5C534A", fontSize: "16px", fontWeight: 700, lineHeight: 1.7}}
             onMouseOver={e => e.target.style.opacity = 0.7}
             onMouseOut={e => e.target.style.opacity = 1}
-            onClick={() => sessionStorage.setItem("divinationResult", JSON.stringify(data))}>
+            onClick={() => sessionStorage.setItem("divinationResult", JSON.stringify({ data, schemeIdx: activeScheme ? activeScheme.name : null }))}>
             <span style={{opacity: 0.5, marginRight: 8}}>→</span>
             想知道怎样用三个三位数算出一卦？
           </a>
@@ -335,7 +341,7 @@ export default function Result() {
             style={{color: activeScheme ? activeScheme.text : "#5C534A", fontSize: "16px", fontWeight: 700, lineHeight: 1.7}}
             onMouseOver={e => e.target.style.opacity = 0.7}
             onMouseOut={e => e.target.style.opacity = 1}
-            onClick={() => sessionStorage.setItem("divinationResult", JSON.stringify(data))}>
+            onClick={() => sessionStorage.setItem("divinationResult", JSON.stringify({ data, schemeIdx: activeScheme ? activeScheme.name : null }))}>
             <span style={{opacity: 0.5, marginRight: 8}}>→</span>
             想制作专属于你的周易卦象香水？
           </a>
