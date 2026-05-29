@@ -99,19 +99,16 @@ export default function Result() {
           catch { return ""; }
         }).join("");
         fullResult += cleaned;
-        // 提取配色（用模块缓存，不依赖 React 异步状态）
+        // 提取配色（中间不更新显示文本，只提取配色切换背景）
         const schemeMatch = fullResult.match(/【配色：(.+?)】/);
         if (schemeMatch) {
           const name = schemeMatch[1].trim();
           const found = (schemesCache || []).find(s => s.name === name);
           if (found) setActiveScheme(found);
         }
-        // 剥离配色标签后更新显示文本
-        const displayResult = fullResult.replace(/【配色：?.+?】\s*$/m, "").trim();
-        setData(prev => ({ ...prev, result: displayResult }));
       }
 
-      // 流结束，确保最终文本不含配色标签
+      // 流结束，剥离配色标签后一次性设置结果
       const finalResult = fullResult.replace(/【配色：?.+?】\s*$/m, "").trim();
       setData(prev => ({ ...prev, result: finalResult }));
       extractScheme(fullResult);
@@ -178,34 +175,23 @@ export default function Result() {
 
   const p = parseResult(data.result);
 
-  // 流式加载中 - 显示原始流式文本（不等待分段解析）
+  // 流式加载中 - 只显示脉冲文字"正在解读中..."，配色获取后切换背景
   if (streaming) {
     const bgColor = activeScheme ? activeScheme.bg : '#faf8f5';
     return (
-      <div className="max-w-2xl mx-auto px-6 sm:px-10 py-16 sm:py-20 min-h-screen"
+      <div className="max-w-2xl mx-auto px-6 sm:px-10 py-16 sm:py-20 min-h-screen flex items-start justify-center"
         style={{
           backgroundImage: `linear-gradient(${hexToRgba(bgColor, 0.5)}, ${hexToRgba(bgColor, 0.5)}), url('/paper-texture.png')`,
           backgroundSize: 'cover', backgroundRepeat: 'no-repeat', backgroundPosition: 'center',
           color: activeScheme ? activeScheme.text : "#2d2d2d",
         }}>
-        <div className="max-w-xl mx-auto">
-          <div className="mb-8 p-6 sm:p-8 rounded-xl text-center"
-            style={{background: activeScheme ? activeScheme.card : "#fff", border: "0.5px solid rgba(0,0,0,0.08)"}}>
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-wider">
-              {getShortName(data.calcResult.hexagram)}卦 · {data.calcResult.yao}
-            </h2>
+        <div className="text-center" style={{marginTop: "20vh"}}>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-wider mb-6">
+            {getShortName(data.calcResult.hexagram)}卦 · {data.calcResult.yao}
+          </h2>
+          <div className="text-sm animate-pulse" style={{color: "#9ca3af", opacity: 0.7}}>
+            正在解读中...
           </div>
-          {data.result ? (
-            <div className="p-6 rounded-xl whitespace-pre-wrap leading-relaxed text-base"
-              style={{background: activeScheme ? activeScheme.card : "#fff", border: "0.5px solid rgba(0,0,0,0.08)", minHeight: "200px"}}>
-              {data.result}
-              <span className="inline-block w-2 h-4 ml-1 animate-pulse bg-gray-400" style={{verticalAlign: "middle"}} />
-            </div>
-          ) : (
-            <div className="text-center text-sm animate-pulse" style={{color: "#9ca3af", opacity: 0.7}}>
-              正在解读中...
-            </div>
-          )}
         </div>
       </div>
     );
