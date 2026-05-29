@@ -112,21 +112,46 @@ export default function Result() {
 
   function parseResult(text) {
     if (!text) return { keyword: "", scentMetaphor: "", fortune: "", ingredients: "", perfume: "", scheme: null };
+    // 提取配色方案标签
     const schemeMatch = text.match(/【配色：?(.+?)】/);
     const schemeName = schemeMatch ? schemeMatch[1].trim() : null;
     const scheme = schemeName ? colorSchemes.find(s => s.name === schemeName) || null : null;
-    const cleanText = text.replace(/【配色：?.+?】\s*$/, "").trim();
-    const keywordMatch = cleanText.match(/香气关键词[：:]([\s\S]*?)(?=\n\n|$)/);
-    const keyword = keywordMatch ? keywordMatch[1].trim() : "";
-    const bodyMatch = cleanText.match(/(?:香气关键词[：:].*?\n\n?)([\s\S]*?)(?:\n*核心原料|$)/);
-    const bodyText = bodyMatch ? bodyMatch[1].trim() : "";
-    const paragraphs = bodyText.split(/\n\n+/).filter(p => p.trim());
-    const scentMetaphor = paragraphs.length > 0 ? paragraphs[0].trim() : "";
-    const fortune = paragraphs.length > 1 ? paragraphs.slice(1).join("\n\n").trim() : "";
-    const ingredMatch = cleanText.match(/核心原料[：:]?([\s\S]*?)(?=\n*香水推荐|$)/);
-    const ingredients = ingredMatch ? ingredMatch[1].trim() : "";
-    const perfumeMatch = cleanText.match(/香水推荐[：:]?([\s\S]*$)/);
-    const perfume = perfumeMatch ? perfumeMatch[1].trim() : "";
+    // 去掉配色标签
+    let cleanText = text.replace(/【配色：?.+?】\s*$/, "").trim();
+
+    // 按双换行分割成段落块
+    let paragraphs = cleanText.split(/\n\n+/).map(p => p.trim()).filter(p => p);
+
+    let keyword = "", scentMetaphor = "", fortune = "", ingredients = "", perfume = "";
+
+    for (let i = 0; i < paragraphs.length; i++) {
+      const para = paragraphs[i];
+      // 关键字：含·的短词组（且不含"品牌："和"（"）
+      if (!keyword && para.includes("·") && !para.includes("\n") && para.length < 60) {
+        keyword = para;
+        continue;
+      }
+      // 原料段：每行都含"（" 或 以常见原料开头
+      if (!ingredients && para.split("\n").every(l => l.trim() && l.includes("（"))) {
+        ingredients = para;
+        continue;
+      }
+      // 香水段：含"品牌："
+      if (!perfume && para.includes("品牌：")) {
+        perfume = para;
+        continue;
+      }
+      // 剩下的按顺序：第一个是香气隐喻，第二个是运势
+      if (!scentMetaphor) {
+        scentMetaphor = para;
+        continue;
+      }
+      if (!fortune) {
+        fortune = para;
+        continue;
+      }
+    }
+
     return { keyword, scentMetaphor, fortune, ingredients, perfume, scheme };
   }
 
