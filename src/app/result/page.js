@@ -126,12 +126,17 @@ export default function Result() {
     const bodyMatch = cleanText.match(/(?:香气关键词[：:].*?\n\n?)([\s\S]*?)(?:\n*核心原料|$)/);
     const bodyText = bodyMatch ? bodyMatch[1].trim() : "";
     const paragraphs = bodyText.split(/\n\n+/).filter(p => p.trim());
-    const scentMetaphor = paragraphs.length > 0 ? paragraphs[0].trim() : "";
-    const fortune = paragraphs.length > 1 ? paragraphs.slice(1).join("\n\n").trim() : "";
+    // 去掉可能的前缀标题
+    const scentMetaphorRaw = paragraphs.length > 0 ? paragraphs[0].trim() : "";
+    const scentMetaphor = scentMetaphorRaw.replace(/^香气隐喻[：:]\s*/, "").trim();
+    const fortuneRaw = paragraphs.length > 1 ? paragraphs.slice(1).join("\n\n").trim() : "";
+    const fortune = fortuneRaw.replace(/^运势解析[：:]\s*/, "").trim();
     const ingredMatch = cleanText.match(/核心原料[：:]?([\s\S]*?)(?=\n*香水推荐|$)/);
-    const ingredients = ingredMatch ? ingredMatch[1].trim() : "";
+    const ingredientsRaw = ingredMatch ? ingredMatch[1].trim() : "";
+    const ingredients = ingredientsRaw.replace(/^核心原料[：:]\s*/, "").trim();
     const perfumeMatch = cleanText.match(/香水推荐[：:]?([\s\S]*$)/);
-    const perfume = perfumeMatch ? perfumeMatch[1].trim() : "";
+    const perfumeRaw = perfumeMatch ? perfumeMatch[1].trim() : "";
+    const perfume = perfumeRaw.replace(/^香水推荐[：:]\s*/, "").trim();
     return { keyword, scentMetaphor, fortune, ingredients, perfume, scheme };
   }
 
