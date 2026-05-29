@@ -165,32 +165,47 @@ export default function Result() {
 
   const p = parseResult(data.result);
 
-  // 流式加载中 - 显示卦名和加载动画
-  if (streaming && !data.result) {
+  // 流式加载中 - 显示原始流式文本（不等待分段解析）
+  if (streaming) {
+    const bgColor = activeScheme ? activeScheme.bg : '#faf8f5';
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center" style={{
-        backgroundColor: "#faf8f5",
-        backgroundImage: "url('/paper-texture.png')",
-        backgroundSize: "cover",
-        backgroundRepeat: "no-repeat",
-        backgroundPosition: "center",
-      }}>
-        <div className="text-center mb-6">
-          <div className="mt-6 text-sm animate-pulse" style={{color: "#9ca3af", opacity: 0.7}}>
-            正在解读中...
+      <div className="max-w-2xl mx-auto px-6 sm:px-10 py-16 sm:py-20 min-h-screen"
+        style={{
+          backgroundImage: `linear-gradient(${hexToRgba(bgColor, 0.5)}, ${hexToRgba(bgColor, 0.5)}), url('/paper-texture.png')`,
+          backgroundSize: 'cover', backgroundRepeat: 'no-repeat', backgroundPosition: 'center',
+          color: activeScheme ? activeScheme.text : "#2d2d2d",
+        }}>
+        <div className="max-w-xl mx-auto">
+          <div className="mb-8 p-6 sm:p-8 rounded-xl text-center"
+            style={{background: activeScheme ? activeScheme.card : "#fff", border: "0.5px solid rgba(0,0,0,0.08)"}}>
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-wider">
+              {getShortName(data.calcResult.hexagram)}卦 · {data.calcResult.yao}
+            </h2>
           </div>
+          {data.result ? (
+            <div className="p-6 rounded-xl whitespace-pre-wrap leading-relaxed text-base"
+              style={{background: activeScheme ? activeScheme.card : "#fff", border: "0.5px solid rgba(0,0,0,0.08)", minHeight: "200px"}}>
+              {data.result}
+              <span className="inline-block w-2 h-4 ml-1 animate-pulse bg-gray-400" style={{verticalAlign: "middle"}} />
+            </div>
+          ) : (
+            <div className="text-center text-sm animate-pulse" style={{color: "#9ca3af", opacity: 0.7}}>
+              正在解读中...
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
-    const bgColor = activeScheme ? activeScheme.bg : '#faf8f5';
-    const mainBg = {
-      backgroundImage: `linear-gradient(${hexToRgba(bgColor, 0.5)}, ${hexToRgba(bgColor, 0.5)}), url('/paper-texture.png')`,
-      backgroundSize: 'cover',
-      backgroundRepeat: 'no-repeat',
-      backgroundPosition: 'center',
-    };
+  // 流式加载完成 - 分段解析展示
+  const bgColor = activeScheme ? activeScheme.bg : '#faf8f5';
+  const mainBg = {
+    backgroundImage: `linear-gradient(${hexToRgba(bgColor, 0.5)}, ${hexToRgba(bgColor, 0.5)}), url('/paper-texture.png')`,
+    backgroundSize: 'cover',
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'center',
+  };
 
     return (
     <>
