@@ -16,19 +16,25 @@ function hexToRgba(hex, alpha) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
+// 模块级配色方案缓存（避免依赖 React 异步状态）
+let schemesCache = null;
+async function getSchemes() {
+  if (schemesCache) return schemesCache;
+  const res = await fetch("/colorSchemes.json");
+  schemesCache = await res.json();
+  return schemesCache;
+}
+// 立即开始加载
+getSchemes();
+
 export default function Result() {
   const [data, setData] = useState(null);
-  const [colorSchemes, setColorSchemes] = useState([]);
   const [activeScheme, setActiveScheme] = useState(null);
   const [streaming, setStreaming] = useState(false);
   const shareRef = useRef(null);
 
   useEffect(() => {
-    fetch("/colorSchemes.json")
-      .then((r) => r.json())
-      .then((data) => setColorSchemes(data));
-
-    // 先检查是否有完整的结果（从了解更多页返回）
+    // 检查是否有完整的结果（从了解更多页返回）
     const saved = sessionStorage.getItem("divinationResult");
     if (saved) {
       try {
@@ -59,12 +65,8 @@ export default function Result() {
     const schemeMatch = text.match(/【配色：(.+?)】/);
     if (schemeMatch) {
       const name = schemeMatch[1].trim();
-      fetch("/colorSchemes.json")
-        .then((r) => r.json())
-        .then((schemes) => {
-          const found = schemes.find(s => s.name === name);
-          if (found) setActiveScheme(found);
-        });
+      const found = (schemesCache || []).find(s => s.name === name);
+      if (found) setActiveScheme(found);
     }
   }
 
@@ -91,11 +93,11 @@ export default function Result() {
           catch { return ""; }
         }).join("");
         fullResult += cleaned;
-        // 提取配色（不进入显示文本）
+        // 提取配色（用模块缓存，不依赖 React 异步状态）
         const schemeMatch = fullResult.match(/【配色：(.+?)】/);
         if (schemeMatch) {
           const name = schemeMatch[1].trim();
-          const found = colorSchemes.find(s => s.name === name);
+          const found = (schemesCache || []).find(s => s.name === name);
           if (found) setActiveScheme(found);
         }
         // 剥离配色标签后更新显示文本
@@ -117,7 +119,7 @@ export default function Result() {
     if (!text) return { keyword: "", scentMetaphor: "", fortune: "", ingredients: "", perfume: "", scheme: null };
     const schemeMatch = text.match(/【配色：?(.+?)】/);
     const schemeName = schemeMatch ? schemeMatch[1].trim() : null;
-    const scheme = schemeName ? colorSchemes.find(s => s.name === schemeName) || null : null;
+    const scheme = schemeName ? (schemesCache || []).find(s => s.name === schemeName) || null : null;
     const cleanText = text.replace(/【配色：?.+?】\s*$/, "").trim();
     const keywordMatch = cleanText.match(/香气关键词[：:]([\s\S]*?)(?=\n\n|$)/);
     const keyword = keywordMatch ? keywordMatch[1].trim() : "";
