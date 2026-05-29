@@ -238,6 +238,7 @@ async function drawShareCard(data, p, scheme) {
 
   const textColor = scheme ? scheme.text : '#2d2d2d';
   const cardBg = scheme ? scheme.card : '#faf8f5';
+  const maxTextWidth = W - margin * 2;
 
   // 1. 背景色
   ctx.fillStyle = cardBg;
@@ -302,7 +303,6 @@ async function drawShareCard(data, p, scheme) {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     ctx.fillStyle = textColor;
-    const maxTextWidth = W - margin * 2;
     const lines = wrapText(ctx, bodyText, maxTextWidth - 32); // 留出缩进空间
     const lineHeight = 28;
     for (const line of lines) {
