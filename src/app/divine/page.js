@@ -126,7 +126,7 @@ export default function Divine() {
       {/* 问题输入 */}
       <div className="flex flex-col items-center px-0 sm:px-8">
         <p className="text-base text-gray-400 mb-2 text-center leading-relaxed">
-          请输入你的问题。记住：不诚不占、不义不占、不疑不占。
+          请输入你的问题。<br />记住：不诚不占、不义不占、不疑不占。
         </p>
         <textarea className="w-full sm:w-4/5 h-20 p-4 text-base border border-gray-200 rounded-lg resize-none focus:outline-none focus:border-gray-400"
           placeholder="在心里默念你的问题，然后写在这里..." value={question}
