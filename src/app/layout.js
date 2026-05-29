@@ -1,3 +1,4 @@
+// © 2026 Bastet — 未闻·I Ching × Perfume Mapping。All rights reserved.
 import "./globals.css";
 import { Noto_Serif_SC } from "next/font/google";
 

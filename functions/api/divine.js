@@ -1,3 +1,4 @@
+// © 2026 Bastet — 未闻·I Ching × Perfume Mapping。All rights reserved.
 // Cloudflare Pages Function：接收卦名+爻位+问题，调用 DeepSeek API 生成文案
 import knowledgeBase from "../data/hexagrams.json" with { type: "json" };
 import colorSchemes from "../data/colorSchemes.json" with { type: "json" };
