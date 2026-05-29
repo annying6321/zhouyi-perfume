@@ -1,8 +1,7 @@
 // © 2026 Bastet — 未闻·I Ching × Perfume Mapping。All rights reserved.
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { toPng } from "html-to-image";
+import { useState, useEffect } from "react";
 
 function getShortName(fullName) {
   if (fullName.includes("为")) return fullName.split("为")[0];
@@ -31,7 +30,15 @@ export default function Result() {
   const [data, setData] = useState(null);
   const [activeScheme, setActiveScheme] = useState(null);
   const [streaming, setStreaming] = useState(false);
-  const shareRef = useRef(null);
+  const [sharing, setSharing] = useState(false);
+  const [toast, setToast] = useState(null); // { message, type }
+
+  // Toast 自动消失
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   useEffect(() => {
     // 检查是否有完整的结果（从了解更多页返回）
@@ -138,20 +145,233 @@ export default function Result() {
     return { keyword, scentMetaphor, fortune, ingredients, perfume, scheme };
   }
 
-  // 生成分享图
-  async function downloadShareImage() {
-    if (!shareRef.current) return;
-    const el = shareRef.current;
-    try {
-      const dataUrl = await toPng(el, { quality: 0.95, pixelRatio: 2 });
-      const link = document.createElement("a");
-      link.download = `未闻_${getShortName(data.calcResult.hexagram)}卦_${data.calcResult.yao}.png`;
-      link.href = dataUrl;
-      link.click();
-    } catch (err) {
-      console.error("生成分享图失败", err);
+// ===== Canvas 绘制分享图 =====
+
+// 自动换行：逐字符测量，超出 maxWidth 换行
+function wrapText(ctx, text, maxWidth) {
+  const paragraphs = text.split('\n');
+  const lines = [];
+  for (const para of paragraphs) {
+    let line = '';
+    for (const char of para) {
+      const testLine = line + char;
+      if (ctx.measureText(testLine).width > maxWidth && line) {
+        lines.push(line);
+        line = char;
+      } else {
+        line = testLine;
+      }
+    }
+    if (line) lines.push(line);
+    lines.push(''); // 段落间距
+  }
+  // 去掉末尾多余的空行
+  while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+  return lines;
+}
+
+// 绘制香气关键词标签（带边框）
+function drawTags(ctx, tags, cx, y, tagColor) {
+  ctx.font = '13px "Noto Serif SC", "SimSun", serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  const gap = 12, padX = 16, padY = 8;
+  // 计算标签总宽度
+  let totalW = 0;
+  const widths = tags.map(t => ctx.measureText(t.trim()).width);
+  for (const w of widths) totalW += w + padX * 2 + gap;
+  totalW -= gap; // 最后一个标签不需要右侧 gap
+  let x = cx - totalW / 2;
+
+  for (let i = 0; i < tags.length; i++) {
+    const tag = tags[i].trim();
+    const tw = widths[i];
+    const bw = tw + padX * 2; // 边框宽度
+    const bh = 28; // 边框高度
+    // 画框
+    ctx.strokeStyle = tagColor;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x, y - bh / 2, bw, bh);
+    // 画文字
+    ctx.fillStyle = tagColor;
+    ctx.fillText(tag, x + padX, y);
+    x += bw + gap;
+  }
+}
+
+// 绘制原料行（名称加粗，描述普通）
+function drawIngredients(ctx, lines, x, y, color, maxWidth, lineHeight) {
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  let curY = y;
+  for (const line of lines) {
+    const m = line.match(/^(.+?)（(.+?)）$/);
+    if (m) {
+      const name = m[1].trim() + '（';
+      const desc = m[2] + '）';
+      ctx.font = 'bold 16px "Noto Serif SC", "SimSun", serif';
+      const nameW = ctx.measureText(name).width;
+      ctx.fillStyle = color;
+      ctx.fillText(name, x, curY);
+      ctx.font = '16px "Noto Serif SC", "SimSun", serif';
+      ctx.fillText(desc, x + nameW, curY);
+    } else {
+      ctx.font = '16px "Noto Serif SC", "SimSun", serif';
+      ctx.fillStyle = color;
+      ctx.fillText(line.trim(), x, curY);
+    }
+    curY += lineHeight;
+    if (curY > 720) break; // 防止溢出
+  }
+  return curY;
+}
+
+async function drawShareCard(data, p, scheme) {
+  const W = 600, H = 800;
+  const margin = 48;
+
+  // 创建离屏 canvas
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  const textColor = scheme ? scheme.text : '#2d2d2d';
+  const cardBg = scheme ? scheme.card : '#faf8f5';
+
+  // 1. 背景色
+  ctx.fillStyle = cardBg;
+  ctx.fillRect(0, 0, W, H);
+
+  // 2. 叠加纸张纹理（用 Image 加载）
+  try {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = resolve; // 纹理加载失败不阻塞绘制
+      img.src = '/paper-texture.png';
+    });
+    if (img.complete && img.naturalWidth > 0) {
+      ctx.globalAlpha = 0.5;
+      ctx.drawImage(img, 0, 0, W, H);
+      ctx.globalAlpha = 1;
+    }
+  } catch (e) { /* 忽略纹理加载失败 */ }
+
+  // 3. "未闻" 标题
+  ctx.font = '13px "Noto Serif SC", "SimSun", serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = textColor;
+  ctx.globalAlpha = 0.6;
+  ctx.fillText('未闻', W / 2, margin);
+  ctx.globalAlpha = 1;
+
+  // 4. 卦名 · 爻位
+  ctx.font = '40px "Noto Serif SC", "SimSun", serif';
+  ctx.fillStyle = textColor;
+  const titleY = margin + 32;
+  ctx.fillText(`${getShortName(data.calcResult.hexagram)}卦 · ${data.calcResult.yao}`, W / 2, titleY);
+
+  // 5. 分割线
+  ctx.globalAlpha = 0.4;
+  ctx.fillStyle = textColor;
+  ctx.fillRect(W / 2 - 20, titleY + 64, 40, 1);
+  ctx.globalAlpha = 1;
+
+  let curY = titleY + 88;
+
+  // 6. 香气关键词
+  if (p.keyword) {
+    const tags = p.keyword.split('·').filter(t => t.trim());
+    curY += 8;
+    ctx.font = '12px "Noto Serif SC", "SimSun", serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = textColor;
+    ctx.fillText('香气关键词', W / 2, curY);
+    curY += 28;
+    drawTags(ctx, tags, W / 2, curY, textColor);
+    curY += 44;
+  }
+
+  // 7. 正文（取第一段，最多200字）
+  const bodyText = (p.scentMetaphor || p.fortune || '').split('\n\n')[0].substring(0, 200);
+  if (bodyText) {
+    ctx.font = '16px "Noto Serif SC", "SimSun", serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = textColor;
+    const maxTextWidth = W - margin * 2;
+    const lines = wrapText(ctx, bodyText, maxTextWidth - 32); // 留出缩进空间
+    const lineHeight = 28;
+    for (const line of lines) {
+      if (!line && curY > 700) break;
+      if (curY > 700) break;
+      const indent = (lines.indexOf(line) === 0 && line) ? 32 : 0; // 首行缩进2字符
+      ctx.fillText(line, margin + indent, curY);
+      curY += lineHeight;
+    }
+    curY += 12;
+  }
+
+  // 8. 核心原料
+  if (p.ingredients) {
+    const ingredLines = p.ingredients.split('\n').filter(l => l.trim());
+    if (ingredLines.length > 0) {
+      curY += 4;
+      ctx.font = '12px "Noto Serif SC", "SimSun", serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = textColor;
+      ctx.fillText('核心原料', W / 2, curY);
+      curY += 28;
+      curY = drawIngredients(ctx, ingredLines, margin, curY, textColor, maxTextWidth, 26);
     }
   }
+
+  // 9. 底部文字
+  ctx.font = '11px "Noto Serif SC", "SimSun", serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = textColor;
+  ctx.globalAlpha = 0.5;
+  ctx.fillText('命运不可见，但可以闻见', W / 2, H - 40);
+  ctx.globalAlpha = 1;
+
+  return canvas;
+}
+
+// 下载分享图
+async function downloadShareImage() {
+  if (!data || !data.result || sharing) return;
+  setSharing(true);
+  setToast({ message: '正在生成分享图...', type: 'info' });
+
+  try {
+    // 等待字体加载
+    await document.fonts.load('16px "Noto Serif SC"');
+    await document.fonts.load('40px "Noto Serif SC"');
+
+    const canvas = await drawShareCard(data, p, activeScheme);
+
+    // 导出为 PNG blob
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png', 0.95));
+    if (!blob) throw new Error('Canvas 导出失败');
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = `未闻_${getShortName(data.calcResult.hexagram)}卦_${data.calcResult.yao}.png`;
+    link.href = url;
+    link.click();
+
+    // 清理
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    setToast({ message: '分享图已保存', type: 'success' });
+  } catch (err) {
+    console.error('生成分享图失败', err);
+    setToast({ message: '分享图生成失败，请尝试截图', type: 'error' });
+  }
+  setTimeout(() => setSharing(false), 300);
+}
 
   if (!data) {
     return (
@@ -291,10 +511,10 @@ export default function Result() {
 
       {/* 按钮区 */}
       <div className="flex gap-3 justify-center flex-wrap">
-        <button onClick={downloadShareImage}
+        <button onClick={downloadShareImage} disabled={sharing}
           className="px-6 py-3 text-sm rounded-lg border transition-colors"
-          style={{borderColor: activeScheme ? activeScheme.text : "#d1d5db", color: activeScheme ? activeScheme.text : "#374151"}}>
-          生成分享图
+          style={{borderColor: activeScheme ? activeScheme.text : "#d1d5db", color: sharing ? "#9ca3af" : (activeScheme ? activeScheme.text : "#374151"), cursor: sharing ? "not-allowed" : "pointer", opacity: sharing ? 0.6 : 1}}>
+          {sharing ? "生成中..." : "生成分享图"}
         </button>
         <a href="/divine"
           className="inline-block px-6 py-3 text-sm rounded-lg bg-gray-800 text-white hover:bg-gray-700 transition-colors">
@@ -330,66 +550,6 @@ export default function Result() {
       </div>
       </div>
 
-      {/* 隐藏的分享卡片 */}
-      {(() => {
-        const cardBgColor = activeScheme ? activeScheme.card : "#faf8f5";
-        const cardStyle = {
-          width: "600px", minHeight: "800px", padding: "48px",
-          backgroundImage: `linear-gradient(${hexToRgba(cardBgColor, 0.5)}, ${hexToRgba(cardBgColor, 0.5)}), url('/paper-texture.png')`,
-          backgroundSize: 'cover',
-          backgroundRepeat: 'no-repeat',
-          backgroundPosition: 'center',
-          color: activeScheme ? activeScheme.text : "#2d2d2d",
-          fontFamily: '"Noto Serif SC", "SimSun", serif',
-          display: "flex", flexDirection: "column", boxSizing: "border-box",
-        };
-        return (
-          <div style={{position: "absolute", top: "-9999px", left: 0, width: "600px"}}>
-            <div ref={shareRef} style={cardStyle}>
-              <div style={{fontSize: "13px", opacity: 0.6, letterSpacing: "3px", marginBottom: "32px", textAlign: "center"}}>未闻</div>
-              <div style={{fontSize: "40px", fontWeight: 700, letterSpacing: "2px", marginBottom: "40px", textAlign: "center"}}>
-                {getShortName(data.calcResult.hexagram)}卦 · {data.calcResult.yao}
-              </div>
-              <div style={{width: "40px", height: "1px", background: activeScheme ? activeScheme.text : "#999", opacity: 0.4, marginBottom: "32px", alignSelf: "center"}} />
-              {p.keyword && (
-                <>
-                  <div style={{fontSize: "12px", fontWeight: 600, letterSpacing: "2px", marginBottom: "10px", textAlign: "center"}}>香气关键词</div>
-                  <div style={{display: "flex", gap: "12px", justifyContent: "center", marginBottom: "32px", flexWrap: "nowrap"}}>
-                    {p.keyword.split("·").map((kw, i) => (
-                      <div key={i} style={{padding: "8px 16px", border: "1px solid", borderColor: activeScheme ? activeScheme.text : "#999", fontSize: "13px", fontWeight: 500, whiteSpace: "nowrap", flex: "0 0 auto"}}>
-                        {kw.trim()}
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-              {(p.scentMetaphor || p.fortune) && (
-                <div style={{fontSize: "16px", lineHeight: 1.8, marginBottom: "32px", whiteSpace: "pre-wrap", textIndent: "2em"}}>
-                  {(p.scentMetaphor || p.fortune).split("\n\n")[0].substring(0, 200)}
-                </div>
-              )}
-              {p.ingredients && (
-                <>
-                  <div style={{fontSize: "12px", fontWeight: 600, letterSpacing: "2px", marginBottom: "10px", textAlign: "center"}}>核心原料</div>
-                  <div style={{fontSize: "16px", lineHeight: 1.7, whiteSpace: "pre-wrap"}}
-                    dangerouslySetInnerHTML={{
-                      __html: p.ingredients.split("\n").filter(l => l.trim()).map(line => {
-                        const m = line.match(/^(.+?)（(.+?)）$/);
-                        return m ? `<strong>${m[1]}</strong>（${m[2]}）` : line;
-                      }).join("<br>"),
-                    }}
-                  />
-                </>
-              )}
-              <div style={{flex: 1}} />
-              <div style={{fontSize: "11px", opacity: 0.5, letterSpacing: "3px", textAlign: "center", marginTop: "24px", borderTop: "0.5px solid", borderColor: activeScheme ? activeScheme.text : "#999", paddingTop: "16px"}}>
-                命运不可见，但可以闻见
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
       {/* 底部版权 */}
       <div className="text-center mt-16 mb-8">
         <div style={{fontSize: "11px", opacity: 0.4, letterSpacing: "1px", lineHeight: "2", color: "#8B8177"}}>
@@ -399,6 +559,31 @@ export default function Result() {
         </div>
       </div>
     </div>
+
+      {/* Toast 通知 */}
+      {toast && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "32px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            padding: "12px 24px",
+            borderRadius: "10px",
+            fontSize: "14px",
+            color: "#fff",
+            background: toast.type === "success" ? "rgba(22,163,74,0.92)" : toast.type === "error" ? "rgba(220,38,38,0.92)" : "rgba(107,114,128,0.92)",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+            zIndex: 999,
+            animation: "fadeIn 0.3s ease-out",
+            backdropFilter: "blur(8px)",
+            letterSpacing: "0.5px",
+          }}
+          onClick={() => setToast(null)}
+        >
+          {toast.message}
+        </div>
+      )}
     </>
   );
 }
