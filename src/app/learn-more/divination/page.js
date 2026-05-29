@@ -232,16 +232,6 @@ export default function Divination() {
         {/* 分隔横线 */}
         <hr style={{border: "none", borderTop: "0.5px solid rgba(0,0,0,0.1)", margin: "28px 0"}} />
 
-        {/* [33] Heading 2 */}
-        <h2 style={{fontSize: "22px", fontWeight: 700, color: "#1f2937", letterSpacing: "0.05em", margin: "0 0 12px"}}>
-          方法总结
-        </h2>
-
-        {/* [34] */}
-        <p style={{textIndent: "2em", lineHeight: 1.5, margin: "0 0 4px", fontSize: "16px"}}>
-          现在你知道数字卦的算法很简单，但你的心念赋予了它意义。
-        </p>
-
       </div>
 
       {/* 底部版权 */}
