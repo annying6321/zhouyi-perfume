@@ -338,14 +338,14 @@ export default function Result() {
 
       {/* 隐藏的分享卡片 */}
       {(() => {
-        const cardBgColor = p.scheme ? p.scheme.card : "#faf8f5";
+        const cardBgColor = activeScheme ? activeScheme.card : "#faf8f5";
         const cardStyle = {
           width: "600px", minHeight: "800px", padding: "48px",
           backgroundImage: `linear-gradient(${hexToRgba(cardBgColor, 0.5)}, ${hexToRgba(cardBgColor, 0.5)}), url('/paper-texture.png')`,
           backgroundSize: 'cover',
           backgroundRepeat: 'no-repeat',
           backgroundPosition: 'center',
-          color: p.scheme ? p.scheme.text : "#2d2d2d",
+          color: activeScheme ? activeScheme.text : "#2d2d2d",
           fontFamily: '"Noto Serif SC", "SimSun", serif',
           display: "flex", flexDirection: "column", boxSizing: "border-box",
         };
@@ -356,13 +356,13 @@ export default function Result() {
               <div style={{fontSize: "40px", fontWeight: 700, letterSpacing: "2px", marginBottom: "40px", textAlign: "center"}}>
                 {getShortName(data.calcResult.hexagram)}卦 · {data.calcResult.yao}
               </div>
-              <div style={{width: "40px", height: "1px", background: p.scheme ? p.scheme.text : "#999", opacity: 0.4, marginBottom: "32px", alignSelf: "center"}} />
+              <div style={{width: "40px", height: "1px", background: activeScheme ? activeScheme.text : "#999", opacity: 0.4, marginBottom: "32px", alignSelf: "center"}} />
               {p.keyword && (
                 <>
                   <div style={{fontSize: "12px", fontWeight: 600, letterSpacing: "2px", marginBottom: "10px", textAlign: "center"}}>香气关键词</div>
                   <div style={{display: "flex", gap: "12px", justifyContent: "center", marginBottom: "32px", flexWrap: "nowrap"}}>
                     {p.keyword.split("·").map((kw, i) => (
-                      <div key={i} style={{padding: "8px 16px", border: "1px solid", borderColor: p.scheme ? p.scheme.text : "#999", fontSize: "13px", fontWeight: 500, whiteSpace: "nowrap", flex: "0 0 auto"}}>
+                      <div key={i} style={{padding: "8px 16px", border: "1px solid", borderColor: activeScheme ? activeScheme.text : "#999", fontSize: "13px", fontWeight: 500, whiteSpace: "nowrap", flex: "0 0 auto"}}>
                         {kw.trim()}
                       </div>
                     ))}
@@ -388,7 +388,7 @@ export default function Result() {
                 </>
               )}
               <div style={{flex: 1}} />
-              <div style={{fontSize: "11px", opacity: 0.5, letterSpacing: "3px", textAlign: "center", marginTop: "24px", borderTop: "0.5px solid", borderColor: p.scheme ? p.scheme.text : "#999", paddingTop: "16px"}}>
+              <div style={{fontSize: "11px", opacity: 0.5, letterSpacing: "3px", textAlign: "center", marginTop: "24px", borderTop: "0.5px solid", borderColor: activeScheme ? activeScheme.text : "#999", paddingTop: "16px"}}>
                 命运不可见，但可以闻见
               </div>
             </div>
