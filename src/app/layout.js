@@ -22,6 +22,10 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="zh-CN" className={notoSerif.className}>
+      <head>
+        <link rel="preload" href="/paper-texture.webp" as="image" type="image/webp" />
+        <link rel="preload" href="/paper-texture.png" as="image" />
+      </head>
       <body>{children}</body>
     </html>
   );
