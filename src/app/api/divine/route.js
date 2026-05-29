@@ -82,7 +82,8 @@ ${colorSchemes.map(s => `- ${s.name}（${s.mood}）`).join('\n')}
   - 香气隐喻只写感官，不说道理
   - 运势解析直接写分析，不以任何元叙述开头
   - 核心原料必须是在调香工业中真实存在的原料，禁止编造
-  - 香水推荐必须真实存在`;
+  - 香水推荐必须真实存在
+  - 在所有内容输出完毕后，在最末尾单独一行用 【配色：名称】 注明最匹配的配色方案名称（例如【配色：烟雨酥青】）`;
 
   // 调用 DeepSeek API（流式返回）
   const response = await fetch("https://api.deepseek.com/chat/completions", {

@@ -91,18 +91,21 @@ export default function Result() {
           catch { return ""; }
         }).join("");
         fullResult += cleaned;
-        // 逐块更新数据，实现渐进式展示
-        setData(prev => ({ ...prev, result: fullResult }));
-        // 提取配色
+        // 提取配色（不进入显示文本）
         const schemeMatch = fullResult.match(/【配色：(.+?)】/);
         if (schemeMatch) {
           const name = schemeMatch[1].trim();
           const found = colorSchemes.find(s => s.name === name);
           if (found) setActiveScheme(found);
         }
+        // 剥离配色标签后更新显示文本
+        const displayResult = fullResult.replace(/【配色：?.+?】\s*$/m, "").trim();
+        setData(prev => ({ ...prev, result: displayResult }));
       }
 
-      setData(prev => ({ ...prev, result: fullResult }));
+      // 流结束，确保最终文本不含配色标签
+      const finalResult = fullResult.replace(/【配色：?.+?】\s*$/m, "").trim();
+      setData(prev => ({ ...prev, result: finalResult }));
       extractScheme(fullResult);
     } catch (err) {
       setData(prev => ({ ...prev, result: "占卜暂时中断，请稍后再试：" + err.message }));
