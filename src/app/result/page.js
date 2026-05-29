@@ -246,7 +246,7 @@ async function drawShareCard(data, p, scheme) {
   // 2. 叠加纸张纹理（用 Image 加载）
   try {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // 注意：同域资源不设 crossOrigin，避免 Safari 移动端 tainted canvas
     await new Promise((resolve, reject) => {
       img.onload = resolve;
       img.onerror = resolve; // 纹理加载失败不阻塞绘制
@@ -347,25 +347,43 @@ async function downloadShareImage() {
   setToast({ message: '正在生成分享图...', type: 'info' });
 
   try {
-    // 等待字体加载
-    await document.fonts.load('16px "Noto Serif SC"');
-    await document.fonts.load('40px "Noto Serif SC"');
+    // 等待字体加载（带超时，避免移动端 Safari 卡死）
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    try {
+      await Promise.race([
+        document.fonts.load('16px "Noto Serif SC"'),
+        document.fonts.load('40px "Noto Serif SC"'),
+        new Promise(resolve => setTimeout(resolve, isMobile ? 500 : 2000)),
+      ]);
+    } catch (e) { /* 字体加载超时或不支持，使用回退字体 */ }
 
     const canvas = await drawShareCard(data, p, activeScheme);
 
-    // 导出为 PNG blob
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png', 0.95));
-    if (!blob) throw new Error('Canvas 导出失败');
+    // 移动端 vs 桌面端使用不同的导出方式
+    if (isMobile) {
+      // 移动端：用 toDataURL 并在新窗口打开（Safari 不支持 download 属性）
+      const dataUrl = canvas.toDataURL('image/png');
+      const win = window.open('', '_blank');
+      if (win) {
+        win.document.write(`<img src="${dataUrl}" style="max-width:100%" /><p>长按图片保存</p>`);
+      } else {
+        // 弹窗被拦截，降级为直接设置 location
+        window.location.href = dataUrl;
+      }
+      setToast({ message: '分享图已生成，请长按保存', type: 'success' });
+    } else {
+      // 桌面端：toBlob + 下载链接
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png', 0.95));
+      if (!blob) throw new Error('Canvas 导出失败');
 
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.download = `未闻_${getShortName(data.calcResult.hexagram)}卦_${data.calcResult.yao}.png`;
-    link.href = url;
-    link.click();
-
-    // 清理
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
-    setToast({ message: '分享图已保存', type: 'success' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = `未闻_${getShortName(data.calcResult.hexagram)}卦_${data.calcResult.yao}.png`;
+      link.href = url;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      setToast({ message: '分享图已保存', type: 'success' });
+    }
   } catch (err) {
     console.error('生成分享图失败', err);
     setToast({ message: '分享图生成失败，请尝试截图', type: 'error' });
