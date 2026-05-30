@@ -214,7 +214,8 @@ function drawTags(ctx, tags, cx, y, tagColor, fontSize) {
 }
 
 // 绘制原料行（同时支持新格式【原料名】解释 和 旧格式 原料名（解释））
-function drawIngredients(ctx, lines, cx, y, color, maxWidth, lineHeight) {
+function drawIngredients(ctx, lines, x, y, color, maxWidth, lineHeight) {
+  ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   let curY = y;
   for (const line of lines) {
@@ -225,33 +226,23 @@ function drawIngredients(ctx, lines, cx, y, color, maxWidth, lineHeight) {
       const desc = newMatch[2].trim();
       ctx.font = `bold 20px "Noto Serif SC", "SimSun", serif`;
       const nameW = ctx.measureText(name).width;
-      ctx.font = `16px "Noto Serif SC", "SimSun", serif`;
-      const descW = ctx.measureText(desc).width;
-      const totalW = nameW + descW;
-      ctx.font = `bold 20px "Noto Serif SC", "SimSun", serif`;
       ctx.fillStyle = color;
-      ctx.fillText(name, cx - totalW / 2, curY);
+      ctx.fillText(name, x, curY);
       ctx.font = `16px "Noto Serif SC", "SimSun", serif`;
-      ctx.fillText(desc, cx - totalW / 2 + nameW, curY);
+      ctx.fillText(desc, x + nameW + 6, curY);
     } else if (oldMatch) {
       const nameStr = oldMatch[1].trim() + '（';
       const descStr = oldMatch[2] + '）';
       ctx.font = `bold 20px "Noto Serif SC", "SimSun", serif`;
       const nameW = ctx.measureText(nameStr).width;
-      ctx.font = `16px "Noto Serif SC", "SimSun", serif`;
-      const descW = ctx.measureText(descStr).width;
-      const totalW = nameW + descW;
-      ctx.font = `bold 16px "Noto Serif SC", "SimSun", serif`;
       ctx.fillStyle = color;
-      ctx.fillText(nameStr, cx - totalW / 2, curY);
+      ctx.fillText(nameStr, x, curY);
       ctx.font = `16px "Noto Serif SC", "SimSun", serif`;
-      ctx.fillText(descStr, cx - totalW / 2 + nameW, curY);
+      ctx.fillText(descStr, x + nameW + 6, curY);
     } else {
       ctx.font = `16px "Noto Serif SC", "SimSun", serif`;
       ctx.fillStyle = color;
-      ctx.textAlign = 'center';
-      ctx.fillText(line.trim(), cx, curY);
-      ctx.textAlign = 'left';
+      ctx.fillText(line.trim(), x, curY);
     }
     curY += lineHeight;
     if (curY > 720) break;
@@ -329,7 +320,7 @@ async function drawShareCard(data, p, scheme) {
     ctx.textAlign = 'center';
     ctx.fillStyle = textColor;
     fillTextWithSpacing(ctx, '香气关键词', LOGICAL_W / 2, curY, 1.5);
-    curY += 12 + 10;
+    curY += 12 + 24;
     const tags = p.keyword.split('·').filter(t => t.trim());
     drawTags(ctx, tags, LOGICAL_W / 2, curY, textColor, 13);
     curY += 30 + 32;
@@ -363,8 +354,8 @@ async function drawShareCard(data, p, scheme) {
       ctx.textAlign = 'center';
       ctx.fillStyle = textColor;
       fillTextWithSpacing(ctx, '核心原料', LOGICAL_W / 2, curY, 1.5);
-      curY += 12 + 10;
-      curY = drawIngredients(ctx, ingredLines, LOGICAL_W / 2, curY, textColor, contentWidth, 27);
+      curY += 12 + 24;
+      curY = drawIngredients(ctx, ingredLines, margin, curY, textColor, contentWidth, 27);
     }
   }
 
