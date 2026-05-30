@@ -214,17 +214,28 @@ function drawTags(ctx, tags, cx, y, tagColor, fontSize) {
   }
 }
 
-// 绘制原料行（同时支持新格式【原料名】解释 和 旧格式 原料名（解释））
+// 绘制原料行（支持【原料名】解释、原料名：解释、原料名（解释）三种格式）
 function drawIngredients(ctx, lines, x, y, color, maxWidth, lineHeight) {
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   let curY = y;
   for (const line of lines) {
     const newMatch = line.match(/^【(.+?)】(.+)$/);
+    const colonMatch = line.match(/^(.+?)[：:](.+)$/);
     const oldMatch = line.match(/^(.+?)（(.+?)）$/);
     if (newMatch) {
       const name = `【${newMatch[1]}】`;
       const desc = newMatch[2].trim();
+      ctx.font = `bold 16px "Noto Serif SC", "SimSun", serif`;
+      const nameW = ctx.measureText(name).width;
+      ctx.fillStyle = color;
+      ctx.fillText(name, x, curY);
+      ctx.font = `16px "Noto Serif SC", "SimSun", serif`;
+      ctx.fillText(desc, x + nameW + 6, curY);
+    } else if (colonMatch && !oldMatch) {
+      // 原料名：解释 → 转为 【原料名】解释
+      const name = `【${colonMatch[1].trim()}】`;
+      const desc = colonMatch[2].trim();
       ctx.font = `bold 16px "Noto Serif SC", "SimSun", serif`;
       const nameW = ctx.measureText(name).width;
       ctx.fillStyle = color;
