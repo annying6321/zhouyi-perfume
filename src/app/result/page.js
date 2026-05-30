@@ -145,7 +145,8 @@ export default function Result() {
     return { keyword, scentMetaphor, fortune, ingredients, perfume, scheme };
   }
 
-// ===== Canvas 绘制分享图 — 精确匹配原 DOM 样式 =====
+// ===== Canvas 分享图生成（pixelRatio = 1.5 优化版） =====
+const CANVAS_SCALE = 1.5;
 
 // 在 Canvas 上模拟 letter-spacing（逐字符绘制）
 function fillTextWithSpacing(ctx, text, x, y, spacing) {
@@ -176,48 +177,52 @@ function wrapText(ctx, text, maxWidth) {
       }
     }
     if (line) lines.push(line);
-    lines.push(''); // 段落间距
+    lines.push('');
   }
   while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
   return lines;
 }
 
-// 绘制香气关键词标签（带边框，精确匹配原样式：padding 8px 16px, border 1px, border-radius 用 strokeRect）
+// 绘制香气关键词标签（带边框）
 function drawTags(ctx, tags, cx, y, tagColor, fontSize) {
-  const gap = 12;
-  const padX = 16;
-  const padY = 8; // 上下各 8px → 总高度 = fontSize实际占用 + 16，但用固定28
+  const gap = 12, padX = 16, tagHeight = 30;
   ctx.font = `${fontSize}px "Noto Serif SC", "SimSun", serif`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   const widths = tags.map(t => ctx.measureText(t.trim()).width);
-  let totalW = 0;
-  for (const w of widths) totalW += w + padX * 2 + gap;
-  totalW -= gap;
+  let totalW = widths.reduce((s, w) => s + w + padX * 2 + gap, 0) - gap;
   let x = cx - totalW / 2;
   for (let i = 0; i < tags.length; i++) {
     const tag = tags[i].trim();
     const bw = widths[i] + padX * 2;
-    const bh = 30;
     ctx.strokeStyle = tagColor;
     ctx.lineWidth = 1;
-    ctx.strokeRect(x, y - bh / 2, bw, bh);
+    ctx.strokeRect(x, y - tagHeight / 2, bw, tagHeight);
     ctx.fillStyle = tagColor;
     ctx.fillText(tag, x + padX, y);
     x += bw + gap;
   }
 }
 
-// 绘制原料行（名称粗体 + 描述普通体）
+// 绘制原料行（同时支持新格式【原料名】解释 和 旧格式 原料名（解释））
 function drawIngredients(ctx, lines, x, y, color, maxWidth, lineHeight) {
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   let curY = y;
   for (const line of lines) {
-    const m = line.match(/^(.+?)（(.+?)）$/);
-    if (m) {
-      const name = m[1].trim() + '（';
-      const desc = m[2] + '）';
+    const newMatch = line.match(/^【(.+?)】(.+)$/);
+    const oldMatch = line.match(/^(.+?)（(.+?)）$/);
+    if (newMatch) {
+      const name = `【${newMatch[1]}】`;
+      ctx.font = `bold 16px "Noto Serif SC", "SimSun", serif`;
+      const nameW = ctx.measureText(name).width;
+      ctx.fillStyle = color;
+      ctx.fillText(name, x, curY);
+      ctx.font = `16px "Noto Serif SC", "SimSun", serif`;
+      ctx.fillText(newMatch[2].trim(), x + nameW, curY);
+    } else if (oldMatch) {
+      const name = oldMatch[1].trim() + '（';
+      const desc = oldMatch[2] + '）';
       ctx.font = `bold 16px "Noto Serif SC", "SimSun", serif`;
       const nameW = ctx.measureText(name).width;
       ctx.fillStyle = color;
@@ -237,148 +242,131 @@ function drawIngredients(ctx, lines, x, y, color, maxWidth, lineHeight) {
 
 // 主绘制函数
 async function drawShareCard(data, p, scheme) {
-  const W = 600, H = 800;
+  const LOGICAL_W = 600, LOGICAL_H = 800;
   const margin = 48;
-
-  const canvas = document.createElement('canvas');
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext('2d');
-
   const textColor = scheme ? scheme.text : '#2d2d2d';
   const cardBg = scheme ? scheme.card : '#faf8f5';
-  const contentWidth = W - margin * 2; // 504px
+  const contentWidth = LOGICAL_W - margin * 2;
   const fontFamily = '"Noto Serif SC", "SimSun", serif';
 
-  // 1. 背景色
-  ctx.fillStyle = cardBg;
-  ctx.fillRect(0, 0, W, H);
+  const canvas = document.createElement('canvas');
+  canvas.width = LOGICAL_W * CANVAS_SCALE;
+  canvas.height = LOGICAL_H * CANVAS_SCALE;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(CANVAS_SCALE, CANVAS_SCALE);
 
-  // 2. 叠加纸张纹理（半透明），匹配原样式
+  // 背景色
+  ctx.fillStyle = cardBg;
+  ctx.fillRect(0, 0, LOGICAL_W, LOGICAL_H);
+
+  // 叠加纸张纹理
   try {
     const img = new Image();
     await new Promise(resolve => { img.onload = resolve; img.onerror = resolve; img.src = '/paper-texture.png'; });
     if (img.complete && img.naturalWidth > 0) {
       ctx.save();
       ctx.globalAlpha = 0.5;
-      ctx.drawImage(img, 0, 0, W, H);
+      ctx.drawImage(img, 0, 0, LOGICAL_W, LOGICAL_H);
       ctx.restore();
     }
   } catch (e) { /* 忽略 */ }
 
-  let curY = margin; // 顶部 padding 48px
+  let curY = margin;
 
-  // 3. "未闻" — 13px, opacity 0.6, letterSpacing 3px, textAlign center
+  // "未闻" — 13px, opacity 0.6, letterSpacing 2px
   ctx.font = `13px ${fontFamily}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   ctx.fillStyle = textColor;
   ctx.save();
   ctx.globalAlpha = 0.6;
-  fillTextWithSpacing(ctx, '未闻', W / 2, curY, 2);
+  fillTextWithSpacing(ctx, '未闻', LOGICAL_W / 2, curY, 2);
   ctx.restore();
-  curY += 13 + 32; // fontSize(13) + marginBottom(32)
+  curY += 13 + 32;
 
-  // 4. 卦名 · 爻位 — 40px, fontWeight 700, letterSpacing 2px, textAlign center
+  // 卦名 · 爻位 — 40px, bold, letterSpacing 2px
   ctx.font = `bold 40px ${fontFamily}`;
   ctx.textAlign = 'center';
   ctx.fillStyle = textColor;
   const titleText = `${getShortName(data.calcResult.hexagram)}卦 · ${data.calcResult.yao}`;
-  fillTextWithSpacing(ctx, titleText, W / 2, curY, 1);
-  curY += 40 + 40; // fontSize(40) + marginBottom(40)
+  fillTextWithSpacing(ctx, titleText, LOGICAL_W / 2, curY, 1);
+  curY += 40 + 40;
 
-  // 5. 分割线 — 40px宽, 1px高, opacity 0.4, align center
+  // 分割线 — 40px宽, 1px高
   ctx.save();
   ctx.globalAlpha = 0.4;
   ctx.strokeStyle = textColor;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(W / 2 - 20, curY);
-  ctx.lineTo(W / 2 + 20, curY);
+  ctx.moveTo(LOGICAL_W / 2 - 20, curY);
+  ctx.lineTo(LOGICAL_W / 2 + 20, curY);
   ctx.stroke();
   ctx.restore();
-  curY += 1 + 32; // lineHeight(1) + marginBottom(32)
+  curY += 1 + 32;
 
-  // 6. "香气关键词" 标题 — 12px, fontWeight 600, letterSpacing 2px, textAlign center
+  // 香气关键词标题 + 标签组
   if (p.keyword) {
-    ctx.font = '12px "Noto Serif SC", "SimSun", serif'; // 加粗用 700 weight
+    ctx.font = '12px "Noto Serif SC", "SimSun", serif';
     ctx.textAlign = 'center';
     ctx.fillStyle = textColor;
-    fillTextWithSpacing(ctx, '香气关键词', W / 2, curY, 1.5);
-    curY += 12 + 10; // fontSize(12) + marginBottom(10)
-
-    // 标签组 — 13px, fontWeight 500, border 1px
+    fillTextWithSpacing(ctx, '香气关键词', LOGICAL_W / 2, curY, 1.5);
+    curY += 12 + 10;
     const tags = p.keyword.split('·').filter(t => t.trim());
-    drawTags(ctx, tags, W / 2, curY, textColor, 13);
-    curY += 30 + 32; // tagHeight(30) + marginBottom(32)
+    drawTags(ctx, tags, LOGICAL_W / 2, curY, textColor, 13);
+    curY += 30 + 32;
   }
 
-  // 7. 正文 — 16px, lineHeight 1.8, 首行缩进2em(32px), 最多200字
+  // 正文 — 16px, lineHeight 1.8, 首行缩进2em, 最多200字
   const bodyText = (p.scentMetaphor || p.fortune || '').split('\n\n')[0].substring(0, 200);
   if (bodyText) {
     ctx.font = `16px ${fontFamily}`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     ctx.fillStyle = textColor;
-    const indentWidth = 32; // 2em for 16px font
+    const indentWidth = 32;
     const lines = wrapText(ctx, bodyText, contentWidth - indentWidth);
-    const lineHeight = 29; // 16 * 1.8 ≈ 29
+    const lineHeight = 29;
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line) { curY += lineHeight * 0.5; continue; } // 空行(段落间距)减半
+      if (!lines[i]) { curY += lineHeight * 0.5; continue; }
       if (curY > 700) break;
-      const x = margin + (i === 0 ? indentWidth : 0);
-      ctx.fillText(line, x, curY);
+      ctx.fillText(lines[i], margin + (i === 0 ? indentWidth : 0), curY);
       curY += lineHeight;
     }
-    curY += 32; // marginBottom(32) - 段落尾的间距
+    curY += 32;
   }
 
-  // 8. "核心原料" 标题 + 内容
+  // 核心原料
   if (p.ingredients) {
     const ingredLines = p.ingredients.split('\n').filter(l => l.trim());
     if (ingredLines.length > 0) {
       ctx.font = '12px "Noto Serif SC", "SimSun", serif';
       ctx.textAlign = 'center';
       ctx.fillStyle = textColor;
-      fillTextWithSpacing(ctx, '核心原料', W / 2, curY, 1.5);
-      curY += 12 + 10; // fontSize(12) + marginBottom(10)
-
-      // 原料列表 — 16px, lineHeight 1.7
-      curY = drawIngredients(ctx, ingredLines, margin, curY, textColor, contentWidth, 27); // 16 * 1.7 ≈ 27
+      fillTextWithSpacing(ctx, '核心原料', LOGICAL_W / 2, curY, 1.5);
+      curY += 12 + 10;
+      curY = drawIngredients(ctx, ingredLines, margin, curY, textColor, contentWidth, 27);
     }
   }
 
-  // 9. 底部 "命运不可见，但可以闻见" — 需要加一条 border-top
-  // 弹性撑开：flex: 1 在 DOM 中意味着自动填充剩余空间，在 Canvas 中需要计算
-  const remainingSpace = H - curY - 16 - 11 - 24; // bottom padding
-  if (remainingSpace > 0) {
-    // 内容上方留白 = 剩余空间的弹性分布
-    // 但原 DOM 用 flex:1 自动填充，底部固定在接近底部的位置
-    // 所以让底部固定在大约 H - 60 的位置（模仿贴近底部）
-  }
-
-  // 底部文字 — 上方有 border-top
-  curY = H - 16 - 11 - 24; // 16(paddingTop) + 11(fontSize) + 24(approximate space for border)
-  
-  // border-top: 0.5px solid
+  // 底部标语 + border-top
+  curY = LOGICAL_H - 16 - 11 - 24;
   ctx.save();
   ctx.globalAlpha = 0.5;
   ctx.strokeStyle = textColor;
   ctx.lineWidth = 0.5;
   ctx.beginPath();
   ctx.moveTo(margin, curY);
-  ctx.lineTo(W - margin, curY);
+  ctx.lineTo(LOGICAL_W - margin, curY);
   ctx.stroke();
   ctx.restore();
-  curY += 16; // paddingTop: 16px
+  curY += 16;
 
   ctx.font = `11px ${fontFamily}`;
   ctx.textAlign = 'center';
   ctx.fillStyle = textColor;
   ctx.save();
   ctx.globalAlpha = 0.5;
-  fillTextWithSpacing(ctx, '命运不可见，但可以闻见', W / 2, curY, 2);
+  fillTextWithSpacing(ctx, '命运不可见，但可以闻见', LOGICAL_W / 2, curY, 2);
   ctx.restore();
 
   return canvas;
@@ -391,7 +379,6 @@ async function downloadShareImage() {
   setToast({ message: '正在生成分享图...', type: 'info' });
 
   try {
-    // 等待字体加载（带超时，避免移动端 Safari 卡死）
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     try {
       await Promise.race([
@@ -399,40 +386,39 @@ async function downloadShareImage() {
         document.fonts.load('40px "Noto Serif SC"'),
         new Promise(resolve => setTimeout(resolve, isMobile ? 500 : 2000)),
       ]);
-    } catch (e) { /* 字体加载超时或不支持，使用回退字体 */ }
+    } catch (e) { /* 字体加载超时，使用回退字体 */ }
 
     const canvas = await drawShareCard(data, p, activeScheme);
 
-    // 移动端 vs 桌面端使用不同的导出方式
     if (isMobile) {
-      // 移动端：用 toDataURL 并在新窗口打开（Safari 不支持 download 属性）
       const dataUrl = canvas.toDataURL('image/png');
       const win = window.open('', '_blank');
       if (win) {
         win.document.write(`<img src="${dataUrl}" style="max-width:100%" /><p>长按图片保存</p>`);
       } else {
-        // 弹窗被拦截，降级为直接设置 location
         window.location.href = dataUrl;
       }
       setToast({ message: '分享图已生成，请长按保存', type: 'success' });
     } else {
-      // 桌面端：toBlob + 下载链接
-      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png', 0.95));
-      if (!blob) throw new Error('Canvas 导出失败');
-
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.download = `未闻_${getShortName(data.calcResult.hexagram)}卦_${data.calcResult.yao}.png`;
-      link.href = url;
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
-      setToast({ message: '分享图已保存', type: 'success' });
+      canvas.toBlob(blob => {
+        if (!blob) {
+          setToast({ message: '分享图生成失败，请尝试截图', type: 'error' });
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = `未闻_${getShortName(data.calcResult.hexagram)}卦_${data.calcResult.yao}.png`;
+        link.href = url;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+        setToast({ message: '分享图已保存', type: 'success' });
+      }, 'image/png', 0.95);
     }
   } catch (err) {
     console.error('生成分享图失败', err);
     setToast({ message: '分享图生成失败，请尝试截图', type: 'error' });
   }
-  setTimeout(() => setSharing(false), 300);
+  setSharing(false);
 }
 
   if (!data) {
