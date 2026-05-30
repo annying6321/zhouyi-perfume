@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 function getShortName(fullName) {
   if (fullName.includes("为")) return fullName.split("为")[0];
@@ -453,6 +454,7 @@ async function downloadShareImage() {
   if (streaming) {
     const bgColor = activeScheme ? activeScheme.bg : '#faf8f5';
     return (
+      <ErrorBoundary>
       <div className="max-w-2xl mx-auto px-6 sm:px-10 py-16 sm:py-20 min-h-screen flex items-start justify-center"
         style={{
           backgroundImage: `linear-gradient(${hexToRgba(bgColor, 0.5)}, ${hexToRgba(bgColor, 0.5)}), url('/paper-texture.png')`,
@@ -468,6 +470,7 @@ async function downloadShareImage() {
           </div>
         </div>
       </div>
+      </ErrorBoundary>
     );
   }
 
@@ -481,6 +484,7 @@ async function downloadShareImage() {
   };
 
     return (
+    <ErrorBoundary>
     <>
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap');
@@ -644,5 +648,6 @@ async function downloadShareImage() {
         </div>
       )}
     </>
+    </ErrorBoundary>
   );
 }
