@@ -225,7 +225,7 @@ function drawIngredients(ctx, lines, x, y, color, maxWidth, lineHeight) {
     if (newMatch) {
       const name = `【${newMatch[1]}】`;
       const desc = newMatch[2].trim();
-      ctx.font = `bold 20px "Noto Serif SC", "SimSun", serif`;
+      ctx.font = `bold 16px "Noto Serif SC", "SimSun", serif`;
       const nameW = ctx.measureText(name).width;
       ctx.fillStyle = color;
       ctx.fillText(name, x, curY);
@@ -234,7 +234,7 @@ function drawIngredients(ctx, lines, x, y, color, maxWidth, lineHeight) {
     } else if (oldMatch) {
       const nameStr = oldMatch[1].trim() + '（';
       const descStr = oldMatch[2] + '）';
-      ctx.font = `bold 20px "Noto Serif SC", "SimSun", serif`;
+      ctx.font = `bold 16px "Noto Serif SC", "SimSun", serif`;
       const nameW = ctx.measureText(nameStr).width;
       ctx.fillStyle = color;
       ctx.fillText(nameStr, x, curY);
@@ -327,28 +327,27 @@ async function drawShareCard(data, p, scheme) {
     curY += 30 + 60;
   }
 
-  // 正文 — 16px, lineHeight 1.8, 首行缩进2em, 最多200字
+  // 正文 — 16px, lineHeight 1.8, 左对齐, 最多200字
   const bodyText = (p.scentMetaphor || p.fortune || '').split('\n\n')[0].substring(0, 200);
   if (bodyText) {
     ctx.font = `16px ${fontFamily}`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     ctx.fillStyle = textColor;
-    const indentWidth = 32;
-    const lines = wrapText(ctx, bodyText, contentWidth - indentWidth);
+    const lines = wrapText(ctx, bodyText, contentWidth);
     const lineHeight = 29;
     for (let i = 0; i < lines.length; i++) {
       if (!lines[i]) { curY += lineHeight * 0.5; continue; }
       if (curY > 700) break;
-      ctx.fillText(lines[i], margin + (i === 0 ? indentWidth : 0), curY);
+      ctx.fillText(lines[i], margin, curY);
       curY += lineHeight;
     }
     curY += 32;
   }
 
-  // 核心原料（下移两行）
+  // 核心原料
   if (p.ingredients) {
-    curY += 54;
+    curY += 27;
     const ingredLines = p.ingredients.split('\n').filter(l => l.trim());
     if (ingredLines.length > 0) {
       ctx.font = '12px "Noto Serif SC", "SimSun", serif';
