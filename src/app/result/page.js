@@ -223,12 +223,12 @@ function drawIngredients(ctx, lines, cx, y, color, maxWidth, lineHeight) {
     if (newMatch) {
       const name = `【${newMatch[1]}】`;
       const desc = newMatch[2].trim();
-      ctx.font = `bold 16px "Noto Serif SC", "SimSun", serif`;
+      ctx.font = `bold 20px "Noto Serif SC", "SimSun", serif`;
       const nameW = ctx.measureText(name).width;
       ctx.font = `16px "Noto Serif SC", "SimSun", serif`;
       const descW = ctx.measureText(desc).width;
       const totalW = nameW + descW;
-      ctx.font = `bold 16px "Noto Serif SC", "SimSun", serif`;
+      ctx.font = `bold 20px "Noto Serif SC", "SimSun", serif`;
       ctx.fillStyle = color;
       ctx.fillText(name, cx - totalW / 2, curY);
       ctx.font = `16px "Noto Serif SC", "SimSun", serif`;
@@ -236,7 +236,7 @@ function drawIngredients(ctx, lines, cx, y, color, maxWidth, lineHeight) {
     } else if (oldMatch) {
       const nameStr = oldMatch[1].trim() + '（';
       const descStr = oldMatch[2] + '）';
-      ctx.font = `bold 16px "Noto Serif SC", "SimSun", serif`;
+      ctx.font = `bold 20px "Noto Serif SC", "SimSun", serif`;
       const nameW = ctx.measureText(nameStr).width;
       ctx.font = `16px "Noto Serif SC", "SimSun", serif`;
       const descW = ctx.measureText(descStr).width;
