@@ -148,17 +148,26 @@ export default function Result() {
 // ===== Canvas 分享图生成（pixelRatio = 1.5 优化版） =====
 const CANVAS_SCALE = 1.5;
 
-// 在 Canvas 上模拟 letter-spacing（逐字符绘制）
+// 在 Canvas 上模拟 letter-spacing（逐字符绘制，支持 textAlign: center）
 function fillTextWithSpacing(ctx, text, x, y, spacing) {
   if (!spacing || spacing <= 0) {
     ctx.fillText(text, x, y);
     return;
   }
-  let curX = x;
+  // 计算总宽度，用于居中修正
+  let totalW = 0;
+  for (const char of text) {
+    totalW += ctx.measureText(char).width + spacing;
+  }
+  totalW -= spacing;
+  let curX = ctx.textAlign === 'center' ? x - totalW / 2 : x;
+  ctx.save();
+  ctx.textAlign = 'left';
   for (const char of text) {
     ctx.fillText(char, curX, y);
     curX += ctx.measureText(char).width + spacing;
   }
+  ctx.restore();
 }
 
 // 自动换行 + 首行缩进
@@ -205,8 +214,7 @@ function drawTags(ctx, tags, cx, y, tagColor, fontSize) {
 }
 
 // 绘制原料行（同时支持新格式【原料名】解释 和 旧格式 原料名（解释））
-function drawIngredients(ctx, lines, x, y, color, maxWidth, lineHeight) {
-  ctx.textAlign = 'left';
+function drawIngredients(ctx, lines, cx, y, color, maxWidth, lineHeight) {
   ctx.textBaseline = 'top';
   let curY = y;
   for (const line of lines) {
@@ -214,25 +222,36 @@ function drawIngredients(ctx, lines, x, y, color, maxWidth, lineHeight) {
     const oldMatch = line.match(/^(.+?)（(.+?)）$/);
     if (newMatch) {
       const name = `【${newMatch[1]}】`;
+      const desc = newMatch[2].trim();
       ctx.font = `bold 16px "Noto Serif SC", "SimSun", serif`;
       const nameW = ctx.measureText(name).width;
-      ctx.fillStyle = color;
-      ctx.fillText(name, x, curY);
       ctx.font = `16px "Noto Serif SC", "SimSun", serif`;
-      ctx.fillText(newMatch[2].trim(), x + nameW, curY);
+      const descW = ctx.measureText(desc).width;
+      const totalW = nameW + descW;
+      ctx.font = `bold 16px "Noto Serif SC", "SimSun", serif`;
+      ctx.fillStyle = color;
+      ctx.fillText(name, cx - totalW / 2, curY);
+      ctx.font = `16px "Noto Serif SC", "SimSun", serif`;
+      ctx.fillText(desc, cx - totalW / 2 + nameW, curY);
     } else if (oldMatch) {
-      const name = oldMatch[1].trim() + '（';
-      const desc = oldMatch[2] + '）';
+      const nameStr = oldMatch[1].trim() + '（';
+      const descStr = oldMatch[2] + '）';
       ctx.font = `bold 16px "Noto Serif SC", "SimSun", serif`;
-      const nameW = ctx.measureText(name).width;
-      ctx.fillStyle = color;
-      ctx.fillText(name, x, curY);
+      const nameW = ctx.measureText(nameStr).width;
       ctx.font = `16px "Noto Serif SC", "SimSun", serif`;
-      ctx.fillText(desc, x + nameW, curY);
+      const descW = ctx.measureText(descStr).width;
+      const totalW = nameW + descW;
+      ctx.font = `bold 16px "Noto Serif SC", "SimSun", serif`;
+      ctx.fillStyle = color;
+      ctx.fillText(nameStr, cx - totalW / 2, curY);
+      ctx.font = `16px "Noto Serif SC", "SimSun", serif`;
+      ctx.fillText(descStr, cx - totalW / 2 + nameW, curY);
     } else {
       ctx.font = `16px "Noto Serif SC", "SimSun", serif`;
       ctx.fillStyle = color;
-      ctx.fillText(line.trim(), x, curY);
+      ctx.textAlign = 'center';
+      ctx.fillText(line.trim(), cx, curY);
+      ctx.textAlign = 'left';
     }
     curY += lineHeight;
     if (curY > 720) break;
@@ -335,8 +354,9 @@ async function drawShareCard(data, p, scheme) {
     curY += 32;
   }
 
-  // 核心原料
+  // 核心原料（下移两行）
   if (p.ingredients) {
+    curY += 54;
     const ingredLines = p.ingredients.split('\n').filter(l => l.trim());
     if (ingredLines.length > 0) {
       ctx.font = '12px "Noto Serif SC", "SimSun", serif';
@@ -344,7 +364,7 @@ async function drawShareCard(data, p, scheme) {
       ctx.fillStyle = textColor;
       fillTextWithSpacing(ctx, '核心原料', LOGICAL_W / 2, curY, 1.5);
       curY += 12 + 10;
-      curY = drawIngredients(ctx, ingredLines, margin, curY, textColor, contentWidth, 27);
+      curY = drawIngredients(ctx, ingredLines, LOGICAL_W / 2, curY, textColor, contentWidth, 27);
     }
   }
 
