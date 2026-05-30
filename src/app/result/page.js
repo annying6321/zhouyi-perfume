@@ -320,10 +320,10 @@ async function drawShareCard(data, p, scheme) {
     ctx.textAlign = 'center';
     ctx.fillStyle = textColor;
     fillTextWithSpacing(ctx, '香气关键词', LOGICAL_W / 2, curY, 1.5);
-    curY += 12 + 24;
+    curY += 12 + 48;
     const tags = p.keyword.split('·').filter(t => t.trim());
     drawTags(ctx, tags, LOGICAL_W / 2, curY, textColor, 13);
-    curY += 30 + 32;
+    curY += 30 + 60;
   }
 
   // 正文 — 16px, lineHeight 1.8, 首行缩进2em, 最多200字
